@@ -11,7 +11,7 @@ const toggleVideoLike = asyncHandler(async (req, res) => {
     const {videoId} = req.params
     //TODO: toggle like on video
     if(!mongoose.isValidObjectId(videoId)) {
-        throw new ApiError(404, "invalid video id")
+        throw new ApiError(400, "invalid video id")
     }
     const video = await Video.findById(videoId);
     if(!video) {
@@ -114,33 +114,57 @@ const toggleTweetLike = asyncHandler(async (req, res) => {
 
 const getLikedVideos = asyncHandler(async (req, res) => {
     //TODO: get all liked videos
-    const likedVidoes = await Like.aggregate([
+    const likedVideos = await Like.aggregate([
         {
-            $match:{
-                likedBy:new mongoose.Types.ObjectId(req.user?._id)
+            $match: {
+                likedBy: new mongoose.Types.ObjectId(req.user._id),
+                video: { $ne: null }
             }
         },
         {
-            $lookup:{
-                from :"videos",
-                localField:"video",
-                foreignField:"_id",
-                as:"likedVideo",
-                
+            $lookup: {
+                from: "videos",
+                localField: "video",
+                foreignField: "_id",
+                as: "likedVideo"
             }
         },
         {
             $unwind: "$likedVideo"
         },
         {
+            $lookup: {
+                from: "users",
+                localField: "likedVideo.owner",
+                foreignField: "_id",
+                as: "owner",
+                pipeline: [
+                    {
+                        $project: {
+                            username: 1,
+                            fullName: 1,
+                            avatar: 1
+                        }
+                    }
+                ]
+            }
+        },
+        {
+            $addFields: {
+                "likedVideo.owner": {
+                    $first: "$owner"
+                }
+            }
+        },
+        {
             $replaceRoot: {
                 newRoot: "$likedVideo"
             }
         }
-    ])
+    ]);
     return res.status(200)
     .json(
-        new ApiResponse(200, likedVidoes,"all liked videos have fetched successfully")
+        new ApiResponse(200, likedVideos,"all liked videos have fetched successfully")
     )
 
 })

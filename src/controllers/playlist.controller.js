@@ -3,7 +3,8 @@ import {playlist, Playlist} from "../models/playlist.model.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
-
+import { User } from "../models/user.models.js"
+import { Video } from "../models/video.models.js"
 
 const createPlaylist = asyncHandler(async (req, res) => {
     const {name, description} = req.body
@@ -147,8 +148,12 @@ const deletePlaylist = asyncHandler(async (req, res) => {
     if(!mongoose.isValidObjectId(playlistId)){
         throw new ApiError(404, "invalid playlist id")
     }
+    const playlist = await Playlist.findById(playlistId)
+    if(!playlist) {
+        throw new ApiError(404, "playlist has not found")
+    }
     // har baar authorization bhul jata hu 
-    if (playlist.owner.toString() !== req.user._id.toString()) {
+    if (!playlist.owner.equals(req.user._id)) {
         throw new ApiError(403, "Unauthorized");
     }
     await Playlist.findByIdAndDelete(playlistId);
@@ -170,14 +175,17 @@ const updatePlaylist = asyncHandler(async (req, res) => {
         throw new ApiError(400, "all fields are required")
     }
     const existedPlaylist =await Playlist.findById(playlistId);
+    if(!existedPlaylist) {
+        throw new ApiError(404, "existed playlist does not exist")
+    }
     if(existedPlaylist.owner.toString()!==req.user?._id.toString()) {
         throw new ApiError(403,"unauthorized request")
     }
     const playlist = await Playlist.findByIdAndUpdate(
         playlistId,
         {
-            name:name,
-            description:description
+            name,
+            description
         },
         {new:true}
     )

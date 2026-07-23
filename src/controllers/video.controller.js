@@ -171,37 +171,45 @@ const getVideoById = asyncHandler(async (req, res) => {
 
 const updateVideo = asyncHandler(async (req, res) => {
     const { videoId } = req.params
+    if (!mongoose.isValidObjectId(videoId)) {
+        throw new ApiError(400, "Invalid video id");
+    }
     const existingVideo = await Video.findById(videoId);
 
     if (!existingVideo) {
         throw new ApiError(404, "Video not found");
     }
 
-    if (existingVideo.owner.toString() !== req.user._id.toString()) {
+    if (!existingVideo.owner.equals(req.user._id)) {
         throw new ApiError(403, "You are not authorized to update this video");
     }
     const {title, description} = req.body
-    if(!title || !description) {
-        throw new ApiError(400, "all field is required")
+    if([title,description].some(field=>field?.trim()==="")){
+        throw new ApiError(400,"All fields are required");
     }
-    let thumbNail;
-    if(req.files && Array.isArray(req.files.thumbnail) && req.files.thumbnail.length>0) {
-        thumbNail = req.files.thumbnail[0].path
-    }
+    
+    const thumbNail = req.file?.path;
     if(!thumbNail) {
         throw new ApiError(400, "Thumbnail is required")
     }
+    await cloudinary.uploader.destroy(
+        existingVideo.thumbnail.public_id
+    );
     const newThumbnail = await uploadOnCloudinary(thumbNail);
     if(!newThumbnail) {
         throw new ApiError(500, "Thumbnail upload failed")
     }
+    await cloudinary.uploader.destroy(existingVideo.thumbnail.public_id);
     const video = await Video.findByIdAndUpdate(
         videoId,
         {
             $set:{
-                title:title,
-                description:description,
-                thumbnail:newThumbnail?.url
+                title,
+                description,
+                thumbnail:{
+                url:newThumbnail.secure_url,
+                public_id:newThumbnail.public_id
+            }
             }
         },
         {new:true}
