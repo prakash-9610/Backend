@@ -4,7 +4,6 @@ import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
 import {asyncHandler} from "../utils/asyncHandler.js"
 import { Video } from "../models/video.models.js"
-import { json } from "express"
 
 const getVideoComments = asyncHandler(async (req, res) => {
     //TODO: get all comments for a video
@@ -17,8 +16,8 @@ const getVideoComments = asyncHandler(async (req, res) => {
     if(!video) {
         throw new ApiError(404, "video not found")
     }
-    const pageNumber = Number(page);
-    const limitNumber = Number(limit);
+    const pageNumber = Math.max(1, Number(page));
+    const limitNumber = Math.max(1, Number(limit));
     const matchStage={
         video:new mongoose.Types.ObjectId(videoId)
     };
@@ -54,10 +53,11 @@ const getVideoComments = asyncHandler(async (req, res) => {
             }
         },
         {
-            $unwind:"ownerDetails"
+            $unwind:"$ownerDetails"
         },
         {
         $project: {
+            _id:1,
             content: 1,
             createdAt: 1,
             owner: "$ownerDetails"
@@ -146,7 +146,7 @@ const deleteComment = asyncHandler(async (req, res) => {
     if (existingComment.owner.toString() !== req.user._id.toString()) {
         throw new ApiError(403, "Unauthorized");
     }
-    const deltedComment = await Comment.findByIdAndDelete(commentId)
+    await Comment.findByIdAndDelete(commentId)
     return res.status(200)
     .json(
         new ApiResponse(200, {}, "comment deleted successfully")

@@ -9,14 +9,14 @@ const createTweet = asyncHandler(async (req, res) => {
     const {content} = req.body
     if(!content ||content.trim()==="") {
         throw new ApiError(400, "Content cannot be empty")
-    }
+    } 
     const tweet = await Tweet.create({
-        content:content,
+        content,
         owner:req.user?._id
     })
-    return res.status(200)
+    return res.status(201)
     .json(
-        new ApiResponse(200,tweet, "tweet is created successfully")
+        new ApiResponse(201,tweet, "tweet is created successfully")
     )
 })
 
@@ -28,9 +28,6 @@ const getUserTweets = asyncHandler(async (req, res) => {
     }
     const tweets = await Tweet.find(
         {owner:userId}).sort({createdAt:-1});
-    if(tweets.length===0) {
-        throw new ApiError(404, "No tweets found for this user")
-    }
     return res.status(200)
     .json(
         new ApiResponse(200,tweets,"all tweetes wrote by user successfully")
@@ -55,12 +52,16 @@ const updateTweet = asyncHandler(async (req, res) => {
         throw new ApiError(404, "Tweet not found");
     }
 
-    if (tweet.owner.toString() !== req.user._id.toString()) {
+    if (!tweet.owner.equals(req.user._id)) {
         throw new ApiError(403, "Unauthorized");
     }
     const updatedTweet = await Tweet.findByIdAndUpdate(
         tweetId,
-        {content:content},
+        {
+            $set:{
+            content
+        }
+    },
         {new:true}
     )
     if(!updatedTweet) {
@@ -77,13 +78,13 @@ const deleteTweet = asyncHandler(async (req, res) => {
     //TODO: delete tweet
     const {tweetId} = req.params;
     if(!mongoose.isValidObjectId(tweetId)) {
-        throw new ApiError(404, "invalid tweet id ");
+        throw new ApiError(400, "invalid tweet id ");
     }
     const tweet = await Tweet.findById(tweetId);
     if(!tweet) {
         throw new ApiError(404, "tweet not found");
     }
-    if (tweet.owner.toString() !== req.user._id.toString()) {
+    if (!tweet.owner.equals(req.user._id)) {
         throw new ApiError(403, "Unauthorized");
     }
     const deletedTweet = await Tweet.findByIdAndDelete(tweetId);

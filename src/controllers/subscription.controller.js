@@ -1,5 +1,5 @@
 import mongoose, {isValidObjectId} from "mongoose"
-import {User} from "../models/user.model.js"
+import {User} from "../models/user.models.js"
 import { Subscription } from "../models/subscription.model.js"
 import {ApiError} from "../utils/ApiError.js"
 import {ApiResponse} from "../utils/ApiResponse.js"
@@ -16,7 +16,7 @@ const toggleSubscription = asyncHandler(async (req, res) => {
     if(!channel) {
         throw new ApiError(404, "channel not found")
     }
-    if (req.user._id.toString() === channelId) {
+    if (req.user._id.equals(channel._id)) {
         throw new ApiError(400, "You cannot subscribe to your own channel");
     }
     const subscription = await Subscription.findOne({
